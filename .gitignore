@@ -1,0 +1,11 @@
+# 실행 파일
+hw1_client
+hw1_server
+hw2_client
+hw2_server
+
+# macOS 디버그 정보
+*.dSYM/
+
+# macOS 시스템 파일
+.DS_Store
