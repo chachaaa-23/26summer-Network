@@ -64,8 +64,9 @@ int main(int argc, char* argv[]){
         //receive 패킷 설정
         int read_cnt;
         adr_sz = sizeof(from_adr);
-        // FILE* fp = fopen(message, "wb");
-        FILE* fp = fopen("receive_hw2.dat", "wb");
+        message[strlen(message)-1]='\0';
+        FILE* fp = fopen(message, "wb");
+        // FILE* fp = fopen("receive_hw2.dat", "wb");
         memset(send_pkt->msg, 0, sizeof(send_pkt->msg));
         int pass = 0;
 
