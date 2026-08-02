@@ -152,8 +152,6 @@ int main(int argc, char* argv[]){
                 clnt_pkt->x = -1;
             }else{                          //미등록 키
                 printf("미등록 키\n");
-                clnt_pkt->x = prev_x;
-                clnt_pkt->y = prev_y;
                 continue;
             }
         }
@@ -187,8 +185,6 @@ int main(int argc, char* argv[]){
             matrix[serv_pkt[i].x][serv_pkt[i].y].pillow = serv_pkt[i].pillow;
             tot_time = serv_pkt[i].clock;
         }
-        // 7) matrix 띄우기
-        // printout();
     
     }
     printf("Game Finished ^__^ \n");
