@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <time.h>
 #include <fcntl.h>
+#include <errno.h>
 void error_handling(char* msg);
 void printout();
 int getch();
@@ -104,13 +105,16 @@ int main(int argc, char* argv[]){
     /*4. 게임 진행*/
     while(1){
         if(tot_time == 0) break;        //1) timeout
-        printf("\033[H\033[2J\n\n\n");
+        printf("\033[H\033[2J\n");
         printout();
 
         // 2) user에게 방향키 non-blocking 방식 입력받아  (wasd, enter)
         clock_t start = clock();
         while(1){
-            read(STDIN_FILENO, &tmpword, sizeof(tmpword));              //현 상태 입력받고,  
+            read_cnt = read(STDIN_FILENO, &tmpword, sizeof(tmpword));              //현 상태 입력받고,  
+            if(read_cnt == -1){     //error
+                if(errno == EAGAIN) continue;   //다시 입력시도
+            }
             clock_t end = clock();
             double gap = (double)(end-start) / CLOCKS_PER_SEC;
             if(gap > 0.5) break;            //too fast,다시입력
@@ -168,7 +172,7 @@ int main(int argc, char* argv[]){
             int recv_len=0;
             while(recv_len < sizeof(s_pkt)){
                 read_cnt = read(sock, &serv_pkt[i], sizeof(s_pkt));
-                if(read_cnt ==-1){
+                if(read_cnt == -1){
                     error_handling("read() error");
                 }else if(read_cnt == 0) {
                     break;
