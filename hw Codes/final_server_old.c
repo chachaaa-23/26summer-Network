@@ -9,6 +9,7 @@
 #include <time.h>
 #include <fcntl.h>
 #define MAX_CLNT 256
+#define BUF_SIZE 128
 
 void *handle_clnt(void * arg);
 // void send_msg(char * msg, int len);
@@ -48,8 +49,6 @@ int tot_time;                   //게임 제한 시간
 int current_sec=1;              //게임 진행 시간
 int clnt_join=0;                //join 한 클라이언트 수 체크
 int SIZE, i;
-s_pkt* serv_pkt;               //clnt에게 보내줄 정보들
-int serv_join=0;                  //server측에 보내진 정보 수 체크
 
 int main(int argc, char* argv[]){
     srand((unsigned int)time(NULL));
@@ -60,10 +59,8 @@ int main(int argc, char* argv[]){
 		printf("Usage : %s <num> <size> <board> <time> <port>\n", argv[0]);
 		exit(1);
 	}
-    int flag = fcntl( STDIN_FILENO, F_GETFL, 0 ); 
-    fcntl(STDIN_FILENO, F_SETFL, flag | O_NONBLOCK);                           //non-blocking mode
-
     /*1. 서버 bind*/
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);                           //non-blocking mode
     pthread_mutex_init(&mutx, NULL);
     serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     memset(&serv_adr, 0, sizeof(serv_adr));
@@ -90,20 +87,21 @@ int main(int argc, char* argv[]){
     for( i=0; i<SIZE; i++)
         matrix[i] = (game_state*)malloc(sizeof(game_state)* SIZE);
 
+
     /*3. 초기 방석& 유저위치 random 설정*/
-    //판, 방석위치와 뒤집힘 여부 (짝수면 red, 홀수면 blue)
-    for( i=0; i<pillow_num; i++){        
+    //판, 방석위치와 뒤집힘 여부 표시 (짝수면 red, 홀수면 blue)
+    for( i=0; i<pillow_num; i++){        //랜덤한 matrix에 방석& 유저위치 할당
         int tmp_x = rand()%SIZE;
         int tmp_y = rand()%SIZE;
         if(matrix[tmp_x][tmp_y].pillow == 0){
             if(i%2 == 0)
                 matrix[tmp_x][tmp_y].pillow = 2;    //x+y좌표, 짝수면 red(2) 홀수면 blue(1) (결과계산& client측 print시)
             else 
-                matrix[tmp_x][tmp_y].pillow = 1;   
+                matrix[tmp_x][tmp_y].pillow = 1;    //x+y좌표, 짝수면 red(2) 홀수면 blue(1) (결과계산& client측 print시)
             printf("matrix[%d][%d].pillow: %d\n", tmp_x, tmp_y, matrix[tmp_x][tmp_y].pillow);
         } else i--;
     }   
-    for( i=0; i<player_num; i++){        
+    for( i=0; i<player_num; i++){        //랜덤한 matrix에 유저위치 할당
         int tmp_x = rand()%SIZE;
         int tmp_y = rand()%SIZE;
         if(matrix[tmp_x][tmp_y].player == 0){
@@ -114,17 +112,17 @@ int main(int argc, char* argv[]){
     }   
 
     /*4. client 입력받고 실행용 스레드 생성*/
-    serv_pkt = (s_pkt*)malloc(sizeof(s_pkt)* player_num);       //유저별로 들어온 변화값 저장
-    pthread_t t_id[player_num];             //짝수면 red, 홀수면 blue
+    pthread_t t_id[player_num];             //짝수면 red, 홀수면 blue팀
     //n명 들어올때까지 대기
     for( i=0; i<player_num; i++){
         clnt_adr_sz = sizeof(clnt_adr);
-        clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);   
+        clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);   //accept 한 클라이언트 소켓,
 
         pthread_mutex_lock(&mutx);                   
-        clnt_socks[clnt_cnt++] = clnt_sock;          
+        clnt_socks[clnt_cnt++] = clnt_sock;          //전역변수 할당
         pthread_mutex_unlock(&mutx);
 
+        //각 client 스레드 생성
         start_packet->player_id = i+1;  //i번째 client에게 전역변수 패킷 보내기
         thread_arg tharg;
         tharg.clnt_sock = clnt_sock;
@@ -172,16 +170,20 @@ void* handle_clnt(void* arg){
     int str_len=0;
     int client_id = tharg.clnt_id;
     int prev_x, prev_y;     //직전입력 좌표
+    s_pkt* serv_pkt = (s_pkt*)malloc(sizeof(s_pkt));
     c_pkt* clnt_pkt = (c_pkt*)malloc(sizeof(c_pkt));
     game_state* init = (game_state*)malloc(sizeof(game_state));
     printf(">>my_id: %d thread created, matrix 정보 전송 시작.\n", client_id);
     
     /*1) matrix 초기정보 전송*/
+
     for(int j=0; j<SIZE; j++){      //전체 matrix 데이터 보내기
         for(int k=0; k<SIZE; k++){
             init->player = matrix[j][k].player;
             init->pillow = matrix[j][k].pillow;
             write(clnt_sock, init, sizeof(*init));
+            // printf("init->pillow: %d\n",init->pillow);
+            // printf(">init->player: %d\n",init->player);
             if(matrix[j][k].player == client_id){       //init x, y 좌표 저장
                 prev_x = j;
                 prev_y = k;
@@ -189,69 +191,48 @@ void* handle_clnt(void* arg){
             printf(">matrix[%d][%d].player: %d, matrix[%d][%d].pillow: %d\n", j, k, matrix[j][k].player, j, k, matrix[j][k].pillow);
         }
     }
-
-    /*2) 초기정보 전송완료, clnt_join++, timer 시작 */
-    pthread_mutex_lock(&mutx);                  
+    /*2) 초기 판 정보 전송완료, clnt_join++, timer 시작 */
+    pthread_mutex_lock(&mutx);                  //cp
     printf("matrix 전송 완료\n\n");
     clnt_join++;
-    pthread_mutex_unlock(&mutx);                
+    pthread_mutex_unlock(&mutx);                //cp
 
     /*3) 각 클라이언트에게 특정시간마다 메시지 받기 -- t초 이내 값만 받기*/
     while(1){
         read(clnt_sock, clnt_pkt, sizeof(*clnt_pkt));             //유저 입력, %% ms 내에 입력된 마지막값
         
         //4) 바뀐 matrix 업데이트 
-        pthread_mutex_lock(&mutx);                  
-        if(clnt_pkt->x == -1){                      //flip 시
-            matrix[prev_x][prev_y].pillow++;        //기존위치에서 flip
-            // clnt_pkt->x = prev_x;                   //-1 좌표를 직전 좌표로 되돌리기
-            printf("(%d, %d).pillow: %d\n", prev_x, prev_y, matrix[prev_x][prev_y].pillow);
-        }else {
+        pthread_mutex_lock(&mutx);                  //cp
+        if(clnt_pkt->x == -1)                       //user, 현 위치에서 flip 시
+            matrix[prev_x][prev_y].pillow++;        //방석상태만 업데이트
+        else {
             matrix[prev_x][prev_y].player = 0;      //이전 위치에서
             matrix[clnt_pkt->x][clnt_pkt->y].player = client_id;    //새로운 위치로 이동
         }
-        pthread_mutex_unlock(&mutx);                       
-        
-        /*바뀐 matrix, 서버패킷에 업데이트 후,*/
-        pthread_mutex_lock(&mutx);                  
-        serv_pkt[client_id-1].prev_x = prev_x;      //현 결과 덮어씌우기 전, 원래위치
-        serv_pkt[client_id-1].prev_y = prev_y;  
-        if(clnt_pkt->x == -1)                       //flip 신호인 경우  
-            serv_pkt[client_id-1].x = prev_x;
-        else
-            serv_pkt[client_id-1].x = clnt_pkt->x;
-        serv_pkt[client_id-1].y = clnt_pkt->y;
-        serv_pkt[client_id-1].pillow = matrix[serv_pkt[client_id-1].x][serv_pkt[client_id-1].y].pillow;
-        serv_pkt[client_id-1].clock = current_sec;
-        serv_pkt[client_id-1].datatype = 1;
-        serv_join++;
-        pthread_mutex_unlock(&mutx);
-
-        /*전부 업뎃 시, 전송*/
-        while(1){
-            pthread_mutex_lock(&mutx);                  
-            if(serv_join % clnt_cnt == 0){      //모든 클라이언트, 전부 신호 들어오면
-                for(int i=0; i< clnt_cnt; i++){
-                    write(clnt_socks[client_id-1], &serv_pkt[i], sizeof(s_pkt));  //스레드와 연결된 cnlt에게 바뀐정보들 전송. 
-                    printf(">>data sent (%d -> %d)\n", client_id, i);
-                }
-            pthread_mutex_unlock(&mutx);                  
-                pthread_mutex_unlock(&mutx);                  
-                break;
-            }
-            pthread_mutex_unlock(&mutx);                  
-        }
-
         printf(">>prev (%d, %d)\n", prev_x, prev_y);
         printf(">>now (%d, %d)\n", clnt_pkt->x, clnt_pkt->y);
+        pthread_mutex_unlock(&mutx);                  //cp        
         
-        printf("updated. (x: %d, y: %d, pillow state: %d, clock: %d)\n\n", serv_pkt[client_id-1].x, serv_pkt[client_id-1].y, serv_pkt[client_id-1].pillow, serv_pkt[client_id-1].clock);
+        /*바뀐 matrix, 모든 클라이언트에게 결과 전송*/
+        serv_pkt->prev_x = prev_x;
+        serv_pkt->prev_y = prev_y;
+        serv_pkt->x = clnt_pkt->x;
+        serv_pkt->y = clnt_pkt->y;
+        serv_pkt->pillow = matrix[clnt_pkt->x][clnt_pkt->y].pillow;
+        serv_pkt->clock = current_sec;
+        serv_pkt->datatype = 1;
+        for(int i=0; i< clnt_cnt; i++){
+            write(clnt_socks[i], serv_pkt, sizeof(*serv_pkt));  //모든 클라이언트에게 바뀐 정보 전송. 
+            printf(">>data sent (%d -> %d)\n", client_id, i);
+        }   
+
+        printf("updated. (x: %d, y: %d, pillow state: %d, clock: %d)\n\n", serv_pkt->x, serv_pkt->y, serv_pkt->pillow, serv_pkt->clock);
         prev_x = clnt_pkt->x;       //현 위치 업데이트
         prev_y = clnt_pkt->y;
     }
 
     // 게임 시간 초과 시, blocking 탈출-> read가 0 반환 == 클라이언트에서 연결 종료함
-    pthread_mutex_lock(&mutx);      
+    pthread_mutex_lock(&mutx);      //cp
     for(int i=0; i<clnt_cnt; i++){                                      //remove disconnected client
         if(clnt_sock == clnt_socks[i]){                             //방금 종료한 클라이언트가 중간에 들어온 클라이언트라면
             while(i++ < clnt_cnt-1)
