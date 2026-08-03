@@ -34,7 +34,7 @@ typedef struct {
     int datatype;           // -1 init, 0 start, 1 playing, 2 end
 } s_pkt;
 typedef struct{
-    int x, y;           //x가 -1 == Enter 입력
+    int x, y;           //x가 -1 == Enter 입력. x=-200일시 start.
 } c_pkt;    
 
 game_state** matrix;        //게임 정보담는 matrix
@@ -102,6 +102,21 @@ int main(int argc, char* argv[]){
     }
     printf(">>myid: %d, 초기정보 받기 완료\n", myid);
 
+    //게임 start counting
+    c_pkt c;
+    while(1){
+        read(STDIN_FILENO, &c, sizeof(c_pkt));
+        printf(">>c: %d\n", c.x);
+        if(c.x == -200){         //시작신호 read시
+            for(int i=0; i<3; i++){
+                printf("Game start... %d\n", i+1);
+                sleep(1);
+                printf ("\x1b[%dA", 1);	
+            }
+            break;
+        }
+    }
+
     /*4. 게임 진행*/
     while(1){
         if(tot_time == 0) break;        //1) timeout
@@ -112,12 +127,9 @@ int main(int argc, char* argv[]){
         clock_t start = clock();
         while(1){
             read_cnt = read(STDIN_FILENO, &tmpword, sizeof(tmpword));              //현 상태 입력받고,  
-            if(read_cnt == -1){     //error
-                if(errno == EAGAIN) continue;   //다시 입력시도
-            }
             clock_t end = clock();
             double gap = (double)(end-start) / CLOCKS_PER_SEC;
-            if(gap > 0.5) break;            //too fast,다시입력
+            if(gap > 0.5) break;            //대기시간 초과시 탈출
         
             printf("Entered: %c", tmpword);    
             fflush(stdout);
@@ -151,8 +163,7 @@ int main(int argc, char* argv[]){
             else if(tmpword == '\n' || tmpword == 10){       //enter (filp, x == -1)            
                 clnt_pkt->x = -1;
             }else{                          //미등록 키
-                printf("미등록 키\n");
-                continue;
+                printf("undefined key\n");
             }
         }
         
