@@ -8,7 +8,7 @@
 #include <limits.h>
 #include <dirent.h>
 
-#define BUF_SIZE 512
+#define BUF_SIZE 1024
 #define EPOLL_SIZE 50
 #define MAX_CLNT 10
 void error_handling(char *message);
@@ -77,16 +77,16 @@ int main(int argc, char *argv[]){
 				event.data.fd=clnt_sd;
 				epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sd, &event);
 				printf("\nconnected client: %d\n", clnt_sd);
-				printf("serv_sd: %d\n", serv_sd);
 			}
 			else{			//클라이언트로부터 데이터 받을 시
 				memset(buf, 0, sizeof(buf));
 				str_len=read(ep_events[i].data.fd, recv_pkt, sizeof(*recv_pkt));
 
-                    printf(">>recv_pkt->option: %d\n", recv_pkt->option);
-                    printf(">>recv_pkt->msg: %s\n", recv_pkt->msg);
-                    printf(">>recv_pkt->msg_read_cnt: %d\n", recv_pkt->msg_read_cnt);
-                    printf(">>recv_pkt->file_eof: %d\n", recv_pkt->file_eof);
+                    printf("\noption received... (op: %d)\n", recv_pkt->option);
+                    // printf(">>recv_pkt->msg: %s\n", recv_pkt->msg);
+                    // printf(">>recv_pkt->msg_read_cnt: %d\n", recv_pkt->msg_read_cnt);
+                    // printf(">>recv_pkt->file_eof: %d\n", recv_pkt->file_eof);
+                    // printf("-------------------------------------------\n");
 
 				if(str_len==0){				//EOF
 					epoll_ctl(epfd, EPOLL_CTL_DEL, ep_events[i].data.fd, NULL);
@@ -128,31 +128,24 @@ int main(int argc, char *argv[]){
                             send_pkt->msg_read_cnt = strlen(send_pkt->msg);
 
                             write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
-                            printf(">>send_pkt->msg: %s\n", send_pkt->msg);
-                            printf(">>send_pkt->option: %d\n", send_pkt->option);
-                            printf(">>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-
                             break;
 
                         case 2:   //서버의 현 디렉토리 이동
                             send_pkt->option = 2;
 
-                            // printf(">>기존 path[path_index]: %s\n", path[path_index]);
                             memset(path[path_index], 0, sizeof(path[path_index]));      //방금 클라이언트에게 받은 경로로 덮어쓰기
                             strcpy(path[path_index], recv_pkt->msg);
-                            printf("path[path_index] ::%s::\n", path[path_index]);
+                            // printf("path[path_index] ::%s::\n", path[path_index]);
 
                             snprintf(send_pkt->msg, sizeof(send_pkt->msg), "Updated path: %s", path[path_index]);
-                            printf(">>send_pkt->msg: %s\n", send_pkt->msg);
-                            printf(">>send_pkt->option: %d\n", send_pkt->option);
                             
                             write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
                             break;
 
                         case 3:   //서버의 파일 다운
                             send_pkt->option = 3;
-                            
-        					FILE* fp = fopen(path[path_index], "rb");
+
+        					FILE* fp = fopen(recv_pkt->msg, "rb");
                             if(fp == NULL)
                                 perror("fopen failed");
 
@@ -162,37 +155,74 @@ int main(int argc, char *argv[]){
                                 send_pkt->msg_read_cnt = fread((void*)send_pkt->msg, 1, BUF_SIZE, fp);
                                 if(send_pkt->msg_read_cnt < BUF_SIZE){
                                     send_pkt->file_eof = 1;
+
                                     write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
 
-                                    printf("\n>>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
+                                    // printf("\n>>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
                                     printf("\n>>send_pkt->msg: %s\n", send_pkt->msg);
+                                    // printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
                                     break;
                                 }
                                 send_pkt->file_eof = 0;
                                 write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
-
-                                printf("\n>>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
+                                // printf("\n>>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
                                 printf("\n>>send_pkt->msg: %s\n", send_pkt->msg);
+                                // printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
                             }
+                            printf("File Upload Completed. fclose. \n");
+                            fclose(fp);
 
                             break;
                         case 4:   //내 파일 업로드
+                            send_pkt->option = 4;
+
+                            char tmp_filename[20]="";
+                            strcpy(tmp_filename, recv_pkt->msg);
+
+                            printf("Uploading file... (%s)\n", tmp_filename);
+                            FILE* fp4 = fopen(tmp_filename, "wb");
+
+                            //파일 크기만큼만 읽어라-- 
+                            while((read_cnt = read(ep_events[i].data.fd, recv_pkt, sizeof(*recv_pkt))) != 0){       //현재 서버로부터 받은 소켓, 읽어들이고 read
+                                // read_cnt = read(ep_events[i].data.fd, recv_pkt, sizeof(*recv_pkt));
+                                // if(read_cnt == 0) break;
+
+                                printf(">>recv_pkt->msg: %.*s\n", recv_pkt->msg_read_cnt, recv_pkt->msg);
+                                // printf(">>recv_pkt->file_eof: %d\n", recv_pkt->file_eof);
+                                fwrite((void*)recv_pkt->msg, sizeof(char), recv_pkt->msg_read_cnt, fp4);    //buffer를 통해 fp(receive 파일로) fwrite
+                                if(recv_pkt->file_eof == 1) break;
+                            }
+                            printf("file write 완료. \n");
+                            fflush(stdout);
+                            fclose(fp4);
+                            memset(recv_pkt->msg, 0, sizeof(recv_pkt->msg));
+                            memset(send_pkt->msg, 0, sizeof(send_pkt->msg));
+
+                            snprintf(send_pkt->msg, sizeof(send_pkt->msg), "File Upload finished. (%s)\n", tmp_filename);
+                            // printf(">>send_pkt->msg: %s\n", send_pkt->msg);
+                            write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
+
                             break;
                         
                         default:
                             printf("Wrong Input. (%d)", recv_pkt->option);
                             break;
                     }
+                    // printf("-------------------------------------------\n");
                     printf("send_pkt 전송 완료\n");
+                    printf(">>option sent... (op: %d)\n", send_pkt->option);
+                    // printf(">>send_pkt->msg: %s\n", send_pkt->msg);
+                    // printf(">>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
+                    // printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
+                    // printf("===========================================\n");
+                    fflush(stdout);
 
-                    printf(">>send_pkt->option: %d\n", send_pkt->option);
-                    printf(">>send_pkt->msg: %s\n", send_pkt->msg);
-                    printf(">>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-                    printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
 				}
 			}
 		}
 	}
+    free(send_pkt);
+    free(recv_pkt);
 	close(serv_sd);
 	close(epfd);
 	return 0;
