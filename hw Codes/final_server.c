@@ -7,9 +7,10 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <time.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #define MAX_CLNT 256
-
 void *handle_clnt(void * arg);
 // void send_msg(char * msg, int len);
 void error_handling(char * msg);
@@ -54,6 +55,7 @@ int start_flag=0;               //thread,user입력 시작신호 1
 int end_join=0;                 //종료신호 받기
 
 int main(int argc, char* argv[]){
+    signal(SIGPIPE, SIG_IGN);       //SIGPIPE 무시
     srand((unsigned int)time(NULL));
     int serv_sock, clnt_sock;
     struct sockaddr_in serv_adr, clnt_adr;
@@ -64,6 +66,17 @@ int main(int argc, char* argv[]){
 	}
     int flag = fcntl( STDIN_FILENO, F_GETFL, 0 ); 
     fcntl(STDIN_FILENO, F_SETFL, flag | O_NONBLOCK);                           //non-blocking mode
+    /*게임 조건 체크*/
+    for(int i=1; i<6; i++){
+        if(atoi(argv[i]) == 0)
+            error_handling("Input error. Arg must be nonzero\n");
+    }
+    if((atoi(argv[2])* atoi(argv[2])) < atoi(argv[3]))        //size < board
+        error_handling("Input error. Check <size> or <board>. \n");
+    if(atoi(argv[1]) % 2 == 1 )//user 수 홀수
+        error_handling("Input error. <num> must be even\n");
+    if(atoi(argv[3]) % 2 == 1 )//board 수 홀수
+        error_handling("Input error. <board> must be even\n");
 
     /*1. 서버 bind*/
     pthread_mutex_init(&mutx, NULL);
@@ -146,7 +159,7 @@ int main(int argc, char* argv[]){
             c_pkt c;
             c.x = -200;
             pthread_mutex_lock(&mutx);                   
-            for(int i=0; i<player_num; i++)
+            for(int i=0; i<clnt_cnt; i++)
                 write(clnt_socks[i], &c, sizeof(c_pkt));
             // printf("게임 시작신호 전송\n");
 
@@ -164,7 +177,8 @@ int main(int argc, char* argv[]){
                     printf("Game Finished. (current sec: %d)\n", current_sec);
                     break;
                     }
-                } else {
+                } 
+                else {
                     sleep(1);
                     pthread_mutex_lock(&mutx);                   
                     current_sec++;
@@ -210,7 +224,7 @@ void* handle_clnt(void* arg){
                 prev_x = j;
                 prev_y = k;
             }
-            printf(">matrix[%d][%d].player: %d, matrix[%d][%d].pillow: %d\n", j, k, matrix[j][k].player, j, k, matrix[j][k].pillow);
+            // printf(">matrix[%d][%d].player: %d, matrix[%d][%d].pillow: %d\n", j, k, matrix[j][k].player, j, k, matrix[j][k].pillow);
         }
     }
 
@@ -221,10 +235,21 @@ void* handle_clnt(void* arg){
     pthread_mutex_unlock(&mutx);                
 
     /*3) 각 클라이언트에게 특정시간마다 메시지 받기 -- t초 이내 값만 받기*/
+    int read_cnt;
+    int error_flag=0;
     while(1){
         if(start_flag == 1){
-            read(clnt_sock, clnt_pkt, sizeof(*clnt_pkt));             //유저 입력, %% ms 내에 입력된 마지막값
-            
+            if(read_cnt = read(clnt_sock, clnt_pkt, sizeof(*clnt_pkt)) < 0){             //유저 입력, %% ms 내에 입력된 마지막값
+                if(read_cnt < 0){
+                    printf("read_cnt: %d\n", read_cnt);
+                    if(errno == ECONNRESET){
+                        printf("ECONNRESET occured. \n");
+                        error_flag=1;
+                        break;
+                    }
+                }
+            }
+
             //4) 바뀐 matrix 업데이트 
             pthread_mutex_lock(&mutx);                  
             if(clnt_pkt->x == -1 && matrix[prev_x][prev_y].pillow != 0){                      //flip 시 (해당 위치에 방석 존재시)
@@ -278,6 +303,20 @@ void* handle_clnt(void* arg){
         }
     }
 
+    if(error_flag){         //에러로 인한 종료시
+        pthread_mutex_lock(&mutx);      
+        for(int i=0; i<clnt_cnt; i++){
+            if(clnt_sock == clnt_socks[i]){         //방금 종료한 클라이언트, 중간에 들어온 경우
+                while(i++ < clnt_cnt-1)
+                    clnt_socks[i] = clnt_socks[i+1];
+                break;
+            }
+        }
+        clnt_cnt--;
+        pthread_mutex_unlock(&mutx);
+        close(clnt_sock);
+    }
+
     while(1){       //클라이언트가 종료될때까지 기다린 뒤,
         read(clnt_sock, &c, sizeof(c_pkt));
         // printf(">>fin c: %d (i: %d)\n", c.x, i);
@@ -288,6 +327,7 @@ void* handle_clnt(void* arg){
             break;
         }
     }
+
 
     free(init);
     free(clnt_pkt);
