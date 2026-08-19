@@ -34,7 +34,6 @@ int main(int argc, char* argv[]){
         exit(1);
     }
     sock = socket(PF_INET, SOCK_STREAM, 0);
-    // pkt_t* userword = (pkt_t*)malloc(sizeof(pkt_t));
 
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -82,8 +81,6 @@ int main(int argc, char* argv[]){
         //서버에게 현 검색어 보내(write), 연관검색어 처리
         strcpy(send_pkt->search_word, myword);
         write(sock, send_pkt, sizeof(*send_pkt));
-        // printf("\n>입력어 write 완료\n");
-
 
         //일치여부 업데이트 받아(read),
         read(sock, recv_pkt, sizeof(*recv_pkt));
@@ -103,7 +100,6 @@ int main(int argc, char* argv[]){
             if(kword_start_idx != 0){    //맨처음에 키워드가 아닌경우
                 for(int k=0; k<kword_start_idx; k++){   //일반 색처리
                     printf("%c", recv_pkt->related_word[j].r_word[k]);
-                    // printf(">1>%s\n", send->related_word[send->rword_cnt].r_word);
                 }
             }
                 for(int k=0; k<kword_len; k++){                   //키워드 부분 색처리
@@ -121,7 +117,6 @@ int main(int argc, char* argv[]){
     
     free(send_pkt);
     free(recv_pkt);
-    // free(userword);
     close(sock);
     return 0;
 }

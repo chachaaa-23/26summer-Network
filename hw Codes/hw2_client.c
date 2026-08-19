@@ -54,7 +54,7 @@ int main(int argc, char* argv[]){
         memset(send_pkt, 0, sizeof(pkt_t));
         memset(recv_pkt, 0, sizeof(pkt_t));
 
-        //send 패킷 ma설정
+        //send 패킷 설정
         send_pkt->mode = 1;      // 1 == Pkt
         sender_seq++;
         send_pkt->seq = sender_seq;
@@ -66,7 +66,6 @@ int main(int argc, char* argv[]){
         adr_sz = sizeof(from_adr);
         message[strlen(message)-1]='\0';
         FILE* fp = fopen(message, "wb");
-        // FILE* fp = fopen("receive_hw2.dat", "wb");
         memset(send_pkt->msg, 0, sizeof(send_pkt->msg));
         int pass = 0;
 
@@ -75,12 +74,8 @@ int main(int argc, char* argv[]){
             printf(">>start recvfrom... (pass: %d)\n", pass);
             read_cnt = recvfrom(sock, recv_pkt, sizeof(*recv_pkt), 0, (struct sockaddr*)&from_adr, &adr_sz);
             //^ read_cnt, 파일데이터 뿐만아니라 int 까지 함께 읽음. (read_cnt != 파일데이터 길이)
-            printf(">>recv_pkt->mode: %d\n", recv_pkt->mode);
-            printf(">>recv_pkt->seq: %d\n", recv_pkt->seq);
-            // printf(">>recv_pkt->msg: %s\n", recv_pkt->msg);
 
             if(read_cnt == 0) break;
-
             if(recv_pkt->seq == 2 && pass == 0) {
                 printf(">>No ACK signal, sleep 6 sec ...\n");
                 sleep(6);

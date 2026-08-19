@@ -87,7 +87,6 @@ int main(int argc, char* argv[]){
             if(pass == 1){
                 memset(message, 0, sizeof(message));
                 read_cnt = fread(message, 1, BUF_SIZE, fp);   //현재 파일 포인터부터 500씩 읽어서 msg에 저장해라. 몇개의 항목을 읽었는지 read_cnt에 저장해라.
-                // strcpy(send_pkt->msg, message);
                 memcpy(send_pkt->msg, message, read_cnt);
                 
                 send_pkt->msg_read_cnt = read_cnt;
@@ -102,15 +101,10 @@ int main(int argc, char* argv[]){
                 send_pkt->mode = 1;         // send pkt 설정
             }
 
-            printf(">>send_pkt->mode: %d\n", send_pkt->mode);
-            printf(">>send_pkt->seq: %d\n", send_pkt->seq);
-            // printf(">>send_pkt->msg: %s\n", (send_pkt->msg));
-
             sendto(serv_sock, send_pkt, sizeof(*send_pkt), 0, (struct sockaddr*)&clnt_adr, clnt_adr_sz);    //send file data
             socktype = recvfrom(serv_sock, recv_pkt, sizeof(*recv_pkt), 0, (struct sockaddr*)&clnt_adr, &clnt_adr_sz); //receive ACK.
 
             setsockopt(serv_sock, SOL_SOCKET, SO_RCVTIMEO, &optVal, optLen);
-            printf("socktype: %d\n", socktype);
             
             if (socktype != -1){       //not timeout 시
                 printf("ACK received. (socktype: %d)\n", socktype);

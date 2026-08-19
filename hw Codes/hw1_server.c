@@ -64,12 +64,10 @@ int main(int argc, char* argv[]){
 
         write(clnt_sock, &msglen, sizeof(msglen));       //msg 길이 
         write(clnt_sock, msg, msglen);
-        //printf(">>filelist: %s", msg);
 
         //2. read filename to get
         memset(filename, 0, sizeof(filename));
         read(clnt_sock, filename, 100);
-        printf(">>entered filename ::%s::\n", filename);
 
         //3. find if file exists
         int read_cnt;
@@ -82,11 +80,10 @@ int main(int argc, char* argv[]){
                 read_cnt = fread((void*)msg, 1, BUF_SIZE, fp);   //현재 파일 포인터부터 500씩 읽어서 msg에 저장해라. 몇개의 항목을 읽었는지 read_cnt에 저장해라.
                 if(read_cnt < BUF_SIZE){
                     write(clnt_sock, msg, read_cnt);
-                    //printf(">>msg: %.*s\n", read_cnt, msg);
                     break;
                 }
                 write(clnt_sock, msg, BUF_SIZE);
-                //printf(">>msg: %.*s\n", read_cnt, msg);
+
 
             }
             printf("file 전송 완료. fclose.\n\n");

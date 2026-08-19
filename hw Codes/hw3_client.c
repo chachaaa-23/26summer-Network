@@ -49,11 +49,9 @@ int main(int argc, char *argv[])
         printf("    1: Get Current Directory's Infomation\n    2: Move Current Directory\n    3: Download Specific file\n    4: Upload Specific file\n");
         scanf("%s", option);
         fflush(stdout);
-        printf(">>option: %s\n", option);
 
 		if (!strcmp(option,"q") || !strcmp(option,"Q"))
 			break;
-        // printf(">>buf: %s\n", buf);  
         send_pkt->option = atoi(option);
 
         switch (send_pkt->option){
@@ -62,8 +60,6 @@ int main(int argc, char *argv[])
                 scanf("%s", send_pkt->msg);
                 fflush(stdout);
                 send_pkt->msg_read_cnt = strlen(send_pkt->msg);
-
-                printf(">>send_pkt->msg ::%s::\n", send_pkt->msg);
                 strcpy(serv_path, send_pkt->msg);
                 
                 break;
@@ -74,19 +70,12 @@ int main(int argc, char *argv[])
                 send_pkt->msg_read_cnt = strlen(send_pkt->msg);
                 send_pkt->msg[send_pkt->msg_read_cnt-1]='\0';
 
-                printf(">>send_pkt->msg: %s\n", send_pkt->msg);
-                printf(">>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-
                 break;
 
         }
         
 		write(sd, send_pkt, sizeof(*send_pkt));    //클라이언트 소켓의 출력 버퍼, 사용자 메시지 보내기 write
         printf("option sent... (op: %d)\n", send_pkt->option);
-        printf(">>send_pkt->msg: %s\n", send_pkt->msg);
-        printf(">>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-        printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
-
 
         memset(recv_pkt, 0, sizeof(recv_pkt));
         
@@ -95,13 +84,6 @@ int main(int argc, char *argv[])
             read_cnt = read(sd, recv_pkt, sizeof(*recv_pkt));
             total_cnt += read_cnt;
         }
-        // read(sd, recv_pkt, sizeof(*recv_pkt));
-
-        printf("option received... (op: %d)\n\n", recv_pkt->option);
-        printf(">>recv_pkt->msg_read_cnt: %d\n", recv_pkt->msg_read_cnt);
-        printf(">>recv_pkt->msg: %s\n", recv_pkt->msg);
-        printf(">>recv_pkt->file_eof: %d\n", recv_pkt->file_eof);
-
 
         switch (recv_pkt->option){
             case 1:   //서버의 현 디렉토리 정보출력
@@ -121,7 +103,6 @@ int main(int argc, char *argv[])
                     read_cnt = read(sd, recv_pkt, sizeof(*recv_pkt));
                     if(read_cnt == 0) break;
 
-                	printf(">>recv_pkt->msg: %.*s\n", recv_pkt->msg_read_cnt, recv_pkt->msg);
                 	fwrite((void*)recv_pkt->msg, sizeof(char), recv_pkt->msg_read_cnt, fp);    //buffer를 통해 fp(receive 파일로) fwrite
                     if(recv_pkt->file_eof == 1) break;
                 }
@@ -139,7 +120,6 @@ int main(int argc, char *argv[])
                 break;
         }
 	}
-        
 	close(sd);
 	return 0;
 }

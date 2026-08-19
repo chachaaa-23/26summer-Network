@@ -105,10 +105,8 @@ int main(int argc, char* argv[]){
                 prev_x = i;
                 prev_y = j;
             }
-            // printf(">matrix[%d][%d].player: %d, matrix[%d][%d].pillow: %d\n", i,j, matrix[i][j].player, i,j, matrix[i][j].pillow);
         }
     }
-    // printf(">>myid: %d, 초기정보 받기 완료\n", myid);
 
     //게임 start counting
     while(1){
@@ -133,7 +131,7 @@ int main(int argc, char* argv[]){
             read_cnt = read(STDIN_FILENO, &tmpword, sizeof(tmpword));              //현 상태 입력받고,  
             clock_t end = clock();
             double gap = (double)(end-start) / CLOCKS_PER_SEC;
-            if(gap > 0.2) break;            //대기시간 초과시 탈출
+            if(gap > 0.1) break;            //대기시간 초과시 탈출
             fflush(stdout);
         }
             // 3) 패킷에 넣고
@@ -171,14 +169,11 @@ int main(int argc, char* argv[]){
         
         // 4) 서버전송 (non-blocking)
         write(sock, clnt_pkt, sizeof(*clnt_pkt));
-        // printf("updated (%d, %d)\n", clnt_pkt->x, clnt_pkt->y);
-        
 
         // 5) 서버로부터 최신 정보 받아오기 (non-blocking)
         for(int i=0; i<start_packet->player_num; i++){      //모든 플레이어에게 결과 업데이트 받기
             int recv_len=0;
             read(sock, &serv_pkt[i], sizeof(s_pkt));
-            // printf("서버-> %d 수신. \n(d type: %d, x: %d, y: %d, pillow state: %d, clock: %d)\n", i, serv_pkt[i].datatype, serv_pkt[i].x, serv_pkt[i].y, serv_pkt[i].pillow, serv_pkt[i].clock);
             
             // 6) matrix에 정보 반영
             matrix[serv_pkt[i].prev_x][serv_pkt[i].prev_y].player = 0;      //이전 위치 지우고
@@ -194,14 +189,12 @@ int main(int argc, char* argv[]){
 
         //game over시
         if(serv_pkt[myid-1].datatype == 2) {
-            // printf("timeout. game over\n");
             break;
         }
 
         tmpword=0;
         printf("\x1b[%dA\x1b[0J", SIZE + 3);
         fflush(stdout);
-        // printf("\x1b[%dA", SIZE+4);
     }
     printf("Game Finished ^__^ \n");
     result_print();                 //게임 결과 띄우기
@@ -240,7 +233,6 @@ void printout(){
                 printf("|%2d|", matrix[i][j].player); 
             else printf("|  |");                                                 //방석 없고 player 미존재
         }
-        // printf("\x1b[K\n");
         printf("\n");
     }
     for(int i=0; i<SIZE; i++)

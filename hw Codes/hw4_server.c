@@ -67,13 +67,10 @@ int main(int argc, char* argv[]){
     memset(buf, 0, sizeof(buf));
 
     while(fgets(buf, sizeof(buf), fp) != NULL){
-        // printf(">buf: %s\n", buf);
         char* ptr = strtok(buf, ",\n");   
         strcpy(dbword[db_tot_cnt].r_word, ptr);
-        printf("dbword[%d].r_word: %s\n", db_tot_cnt, dbword[db_tot_cnt].r_word);
         ptr = strtok(NULL, ",\n");    
         dbword[db_tot_cnt].s_count = atoi(ptr);
-        printf("dbword[%d].s_count: %d\n", db_tot_cnt, dbword[db_tot_cnt].s_count);
         db_tot_cnt++;
     }
     printf("db read finished.\n");
@@ -103,13 +100,10 @@ void* handle_clnt(void* arg){
     pkt_t* send_pkt = (pkt_t*)malloc(sizeof(pkt_t));        //user 검색어와 겹치는 연관검색어 
     pkt_t* recv_pkt = (pkt_t*)malloc(sizeof(pkt_t));        //user 입력 검색어
 
-    // while((str_len = read(clnt_sock, recv_pkt, sizeof(*recv_pkt))) != 0){      //클라이언트가 입력한 메시지 받아 (대기중)
     while(1){
     str_len = read(clnt_sock, recv_pkt, sizeof(*recv_pkt));      //클라이언트가 입력한 메시지 받아 (대기중)
     if(!str_len)    
         error_handling("Wrong read");
-
-    printf("user keyword: %s\n", recv_pkt->search_word);
 
     cal_words(recv_pkt, send_pkt);
     write(clnt_sock, send_pkt, sizeof(*send_pkt)); //게산결과 보내기 write
@@ -145,13 +139,10 @@ void cal_words(pkt_t* recv, pkt_t* send){     //recv에 있는 searchword와 겹
         // 3. 있으면 send->related_word로 저장
             int keyword_start_len = tmp-dbword[i].r_word;
             send->related_word[send->rword_cnt].w_start = keyword_start_len;     //word[i] 키워드 시작하는 index i 번호
-            printf(">>send->related_word[send->rword_cnt].w_start: %d\n", send->related_word[send->rword_cnt].w_start);
 
             strcpy(send->related_word[send->rword_cnt].r_word, dbword[i].r_word);
             send->related_word[send->rword_cnt].s_count = dbword[i].s_count;
-            printf(">>%s\n", send->related_word[send->rword_cnt].r_word);
             send->rword_cnt++;
-            // printf(">tmp: %c\n", *tmp);
         }
     }
     // 4. 검색횟수로 내림차순정렬

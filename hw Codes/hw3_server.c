@@ -81,12 +81,7 @@ int main(int argc, char *argv[]){
 			else{			//클라이언트로부터 데이터 받을 시
 				memset(buf, 0, sizeof(buf));
 				str_len=read(ep_events[i].data.fd, recv_pkt, sizeof(*recv_pkt));
-
                     printf("\noption received... (op: %d)\n", recv_pkt->option);
-                    // printf(">>recv_pkt->msg: %s\n", recv_pkt->msg);
-                    // printf(">>recv_pkt->msg_read_cnt: %d\n", recv_pkt->msg_read_cnt);
-                    // printf(">>recv_pkt->file_eof: %d\n", recv_pkt->file_eof);
-                    // printf("-------------------------------------------\n");
 
 				if(str_len==0){				//EOF
 					epoll_ctl(epfd, EPOLL_CTL_DEL, ep_events[i].data.fd, NULL);
@@ -97,7 +92,6 @@ int main(int argc, char *argv[]){
                     int path_index = (ep_events[i].data.fd-serv_sd)/2;
                     // 들어온 데이터 옵션에 따라 명령실행 
                     printf("\n>>received msg from client\n");
-                    // printf(">>i: %d, serv_sd: %d, ep_events[i].data.fd: %d, path_index: %d\n", i, serv_sd, ep_events[i].data.fd, path_index);
                     memset(send_pkt->msg, 0, sizeof(send_pkt->msg));
 
                     switch(recv_pkt->option){       //입력에 맞게 send_pkt 작성
@@ -135,7 +129,6 @@ int main(int argc, char *argv[]){
 
                             memset(path[path_index], 0, sizeof(path[path_index]));      //방금 클라이언트에게 받은 경로로 덮어쓰기
                             strcpy(path[path_index], recv_pkt->msg);
-                            // printf("path[path_index] ::%s::\n", path[path_index]);
 
                             snprintf(send_pkt->msg, sizeof(send_pkt->msg), "Updated path: %s", path[path_index]);
                             
@@ -157,17 +150,10 @@ int main(int argc, char *argv[]){
                                     send_pkt->file_eof = 1;
 
                                     write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
-
-                                    // printf("\n>>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-                                    printf("\n>>send_pkt->msg: %s\n", send_pkt->msg);
-                                    // printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
                                     break;
                                 }
                                 send_pkt->file_eof = 0;
                                 write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
-                                // printf("\n>>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-                                printf("\n>>send_pkt->msg: %s\n", send_pkt->msg);
-                                // printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
                             }
                             printf("File Upload Completed. fclose. \n");
                             fclose(fp);
@@ -182,13 +168,8 @@ int main(int argc, char *argv[]){
                             printf("Uploading file... (%s)\n", tmp_filename);
                             FILE* fp4 = fopen(tmp_filename, "wb");
 
-                            //파일 크기만큼만 읽어라-- 
+                            //파일 크기만큼만 읽어라
                             while((read_cnt = read(ep_events[i].data.fd, recv_pkt, sizeof(*recv_pkt))) != 0){       //현재 서버로부터 받은 소켓, 읽어들이고 read
-                                // read_cnt = read(ep_events[i].data.fd, recv_pkt, sizeof(*recv_pkt));
-                                // if(read_cnt == 0) break;
-
-                                printf(">>recv_pkt->msg: %.*s\n", recv_pkt->msg_read_cnt, recv_pkt->msg);
-                                // printf(">>recv_pkt->file_eof: %d\n", recv_pkt->file_eof);
                                 fwrite((void*)recv_pkt->msg, sizeof(char), recv_pkt->msg_read_cnt, fp4);    //buffer를 통해 fp(receive 파일로) fwrite
                                 if(recv_pkt->file_eof == 1) break;
                             }
@@ -199,7 +180,6 @@ int main(int argc, char *argv[]){
                             memset(send_pkt->msg, 0, sizeof(send_pkt->msg));
 
                             snprintf(send_pkt->msg, sizeof(send_pkt->msg), "File Upload finished. (%s)\n", tmp_filename);
-                            // printf(">>send_pkt->msg: %s\n", send_pkt->msg);
                             write(ep_events[i].data.fd, send_pkt, sizeof(*send_pkt));
 
                             break;
@@ -208,13 +188,7 @@ int main(int argc, char *argv[]){
                             printf("Wrong Input. (%d)", recv_pkt->option);
                             break;
                     }
-                    // printf("-------------------------------------------\n");
                     printf("send_pkt 전송 완료\n");
-                    printf(">>option sent... (op: %d)\n", send_pkt->option);
-                    // printf(">>send_pkt->msg: %s\n", send_pkt->msg);
-                    // printf(">>send_pkt->msg_read_cnt: %d\n", send_pkt->msg_read_cnt);
-                    // printf(">>send_pkt->file_eof: %d\n", send_pkt->file_eof);
-                    // printf("===========================================\n");
                     fflush(stdout);
 
 				}

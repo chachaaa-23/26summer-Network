@@ -52,9 +52,7 @@ int main(int argc, char* argv[]){
     printf("enter file name to read: ");
     scanf("%s", msg);
 
-    //printf(">>strlen(msg): %d\n", strlen(msg));
     write(sock, msg, strlen(msg));
-    //printf(">>filename: %s\n", msg);
 
     /*파일 데이터, msg 버퍼로 받아온 뒤, .dat로 저장*/
     memset(msg, 0, sizeof(msg));
@@ -63,7 +61,6 @@ int main(int argc, char* argv[]){
 
     while((read_cnt = read(sock, msg, BUF_SIZE)) != 0){
         fwrite((void*)msg, 1, read_cnt, fp);
-        //printf("%.*s", read_cnt, msg);
     }
 
 	puts("Received file data\n");
